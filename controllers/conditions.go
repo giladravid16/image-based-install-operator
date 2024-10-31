@@ -2,7 +2,6 @@ package controllers
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -198,8 +197,7 @@ func (r *ImageClusterInstallMonitor) setClusterInstallingConditions(ctx context.
 	return r.Status().Patch(ctx, ici, patch)
 }
 
-func (r *ImageClusterInstallMonitor) setClusterTimeoutConditions(ctx context.Context, ici *v1alpha1.ImageClusterInstall, timeout string) error {
-	message := fmt.Sprintf("Cluster failed to install within the timeout (%s)", timeout)
+func (r *ImageClusterInstallMonitor) setClusterTimeoutConditions(ctx context.Context, ici *v1alpha1.ImageClusterInstall, message string) error {
 	patch := client.MergeFrom(ici.DeepCopy())
 	completedUpdated := setClusterInstallCondition(&ici.Status.Conditions, hivev1.ClusterInstallCondition{
 		Type:    hivev1.ClusterInstallCompleted,

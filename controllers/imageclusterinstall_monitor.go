@@ -93,6 +93,14 @@ func (r *ImageClusterInstallMonitor) monitorInstallationProgress(
 	}
 	if !bmh.Status.PoweredOn {
 		log.Infof("BareMetalHost %s/%s is not powered on yet", bmh.Name, bmh.Namespace)
+		timedout, err := r.handleClusterTimeout(ctx, log, ici, r.DefaultInstallTimeout, "BMH failed to power on within the cluster installation timeout (%s)")
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+		if timedout {
+			// in case of timeout we want to requeue after 1 hour
+			return ctrl.Result{RequeueAfter: time.Hour}, nil
+		}
 		if err := r.setClusterInstallingConditions(ctx, ici, "Waiting for BMH to power on"); err != nil {
 			log.WithError(err).Error("failed to set installing conditions")
 		}
@@ -106,7 +114,7 @@ func (r *ImageClusterInstallMonitor) monitorInstallationProgress(
 	return res, nil
 }
 
-func (r *ImageClusterInstallMonitor) handleClusterTimeout(ctx context.Context, log logrus.FieldLogger, ici *v1alpha1.ImageClusterInstall, defaultTimeout time.Duration) (bool, error) {
+func (r *ImageClusterInstallMonitor) handleClusterTimeout(ctx context.Context, log logrus.FieldLogger, ici *v1alpha1.ImageClusterInstall, defaultTimeout time.Duration, format string) (bool, error) {
 	timeout := defaultTimeout
 
 	if installationTimedout(ici) {
@@ -122,7 +130,7 @@ func (r *ImageClusterInstallMonitor) handleClusterTimeout(ctx context.Context, l
 	}
 
 	if ici.Status.BootTime.Add(timeout).Before(time.Now()) {
-		err := r.setClusterTimeoutConditions(ctx, ici, timeout.String())
+		err := r.setClusterTimeoutConditions(ctx, ici, fmt.Sprintf(format, timeout))
 		if err != nil {
 			log.WithError(err).Error("failed to set cluster timeout conditions")
 		}
@@ -143,7 +151,7 @@ func (r *ImageClusterInstallMonitor) checkClusterStatus(ctx context.Context,
 
 	status := r.GetSpokeClusterInstallStatus(ctx, log, spokeClient)
 	if !status.Installed {
-		timedout, err := r.handleClusterTimeout(ctx, log, ici, r.DefaultInstallTimeout)
+		timedout, err := r.handleClusterTimeout(ctx, log, ici, r.DefaultInstallTimeout, "Cluster failed to install within the timeout (%s)")
 		if err != nil {
 			return ctrl.Result{}, err
 		}
