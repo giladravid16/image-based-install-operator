@@ -93,6 +93,9 @@ func (r *ImageClusterInstall) validate() error {
 	if err := isValidMachineNetwork(r.Spec.MachineNetwork); err != nil {
 		return fmt.Errorf("invalid machine network: %w", err)
 	}
+	if err := isValidNoProxy(r.Spec.Proxy, r.Spec.MachineNetwork); err != nil {
+		return fmt.Errorf("invalid no_proxy: %w", err)
+	}
 	return nil
 }
 
@@ -144,6 +147,13 @@ func isValidMachineNetwork(machineNetwork string) error {
 	_, _, err := net.ParseCIDR(machineNetwork)
 	if err != nil {
 		return fmt.Errorf("error parsing machine network, check that it is valid cidr: %w", err)
+	}
+	return nil
+}
+
+func isValidNoProxy(proxy *Proxy, machineNetwork string) error {
+	if proxy != nil && proxy.NoProxy != "" && machineNetwork == "" {
+		return errors.New("must set machine network when no_proxy is defined")
 	}
 	return nil
 }
